@@ -1,5 +1,9 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 license
 
+import sys
+sys.path.append('/home/guinebert/repos/yolov8_/')  # Replace with the actual path to the cloned repository directory
+print(sys.path)
+
 __version__ = '8.0.163'
 
 from ultralytics.models import RTDETR, SAM, YOLO

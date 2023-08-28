@@ -8,6 +8,7 @@ import random
 import subprocess
 import time
 import zipfile
+import pydicom
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from tarfile import is_tarfile
@@ -35,6 +36,26 @@ def img2label_paths(img_paths):
     sa, sb = f'{os.sep}images{os.sep}', f'{os.sep}labels{os.sep}'  # /images/, /labels/ substrings
     return [sb.join(x.rsplit(sa, 1)).rsplit('.', 1)[0] + '.txt' for x in img_paths]
 
+def file2label_map(lb_paths):
+    """Define label paths as a function of image paths."""
+    lb_map = {}
+    for lf in lb_paths:
+        with open(lf) as file:
+            lb = [x.split() for x in file.read().strip().splitlines() if len(x)]
+            for x in lb:
+                img = x[0]
+                groups=[]
+                if len(x) > 6:
+                    groups = [list(map(int, map(float, x[i:i + 5]))) for i in range(1, len(x), 5)]
+                lb_map[img]=groups
+                    
+                    
+            # if any(len(x) > 6 for x in lb):  # is segment                
+            #     classes = np.array([x[1] for x in lb], dtype=np.float32)
+            #     segments = [np.array(x[2:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
+            #     lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
+            # lb = np.array(lb, dtype=np.float32)
+    return lb_map
 
 def get_hash(paths):
     """Returns a single hash value of a list of paths (files or dirs)."""
@@ -89,29 +110,53 @@ def verify_image_label(args):
     nm, nf, ne, nc, msg, segments, keypoints = 0, 0, 0, 0, '', [], None
     try:
         # Verify images
-        im = Image.open(im_file)
-        im.verify()  # PIL verify
-        shape = exif_size(im)  # image size
-        shape = (shape[1], shape[0])  # hw
-        assert (shape[0] > 9) & (shape[1] > 9), f'image size {shape} <10 pixels'
-        assert im.format.lower() in IMG_FORMATS, f'invalid image format {im.format}'
-        if im.format.lower() in ('jpg', 'jpeg'):
-            with open(im_file, 'rb') as f:
-                f.seek(-2, 2)
-                if f.read() != b'\xff\xd9':  # corrupt JPEG
-                    ImageOps.exif_transpose(Image.open(im_file)).save(im_file, 'JPEG', subsampling=0, quality=100)
-                    msg = f'{prefix}WARNING ⚠️ {im_file}: corrupt JPEG restored and saved'
+        if not os.path.splitext(im_file)[1]:
+            ds = pydicom.dcmread(im_file)
+            #im0 = ds.pixel_array.astype(np.float32)
+            # im0 = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            # im0 = cv2.cvtColor(im0, cv2.COLOR_GRAY2BGR)
+            shape = (ds.Columns, ds.Rows)  # hw
+            assert (shape[0] > 9) & (shape[1] > 9), f'image size {shape} <10 pixels'
+            #print("File has no extension")
+        else:
+            im = Image.open(im_file)
+            im.verify()  # PIL verify
+            shape = exif_size(im)  # image size
+            shape = (shape[1], shape[0])  # hw
+            assert (shape[0] > 9) & (shape[1] > 9), f'image size {shape} <10 pixels'
+            assert im.format.lower() in IMG_FORMATS, f'invalid image format {im.format}'
+            if im.format.lower() in ('jpg', 'jpeg'):
+                with open(im_file, 'rb') as f:
+                    f.seek(-2, 2)
+                    if f.read() != b'\xff\xd9':  # corrupt JPEG
+                        ImageOps.exif_transpose(Image.open(im_file)).save(im_file, 'JPEG', subsampling=0, quality=100)
+                        msg = f'{prefix}WARNING ⚠️ {im_file}: corrupt JPEG restored and saved'
 
         # Verify labels
-        if os.path.isfile(lb_file):
+        if isinstance(lb_file, dict) or os.path.isfile(lb_file):
             nf = 1  # label found
-            with open(lb_file) as f:
-                lb = [x.split() for x in f.read().strip().splitlines() if len(x)]
-                if any(len(x) > 6 for x in lb) and (not keypoint):  # is segment
+            if isinstance(lb_file, dict):
+                filename = os.path.basename(im_file)
+                key = filename[0:2] + '/' + filename[2:4] + '/' + filename
+                lb=[]
+                if key in lb_file:
+                    lb=lb_file[key]
+                else:
+                    lb=lb_file[filename]
+                if any(len(x) > 4 for x in lb) and (not keypoint):  # is segment
                     classes = np.array([x[0] for x in lb], dtype=np.float32)
                     segments = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
-                    lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
+                    lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments, shape)), 1)  # (cls, xywh)
                 lb = np.array(lb, dtype=np.float32)
+                #print('map', lb)
+            elif os.path.isfile(lb_file):
+                with open(lb_file) as f:
+                    lb = [x.split() for x in f.read().strip().splitlines() if len(x)]
+                    if any(len(x) > 6 for x in lb) and (not keypoint):  # is segment
+                        classes = np.array([x[0] for x in lb], dtype=np.float32)
+                        segments = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
+                        lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
+                    lb = np.array(lb, dtype=np.float32)
             nl = len(lb)
             if nl:
                 if keypoint:
@@ -151,6 +196,7 @@ def verify_image_label(args):
     except Exception as e:
         nc = 1
         msg = f'{prefix}WARNING ⚠️ {im_file}: ignoring corrupt image/label: {e}'
+        #print(msg)
         return [None, None, None, None, None, nm, nf, ne, nc, msg]
 
 
@@ -257,7 +303,7 @@ def check_det_dataset(dataset, autodownload=True):
     if not path.is_absolute():
         path = (DATASETS_DIR / path).resolve()
     data['path'] = path  # download scripts
-    for k in 'train', 'val', 'test':
+    for k in 'train', 'val', 'test', 'labels':
         if data.get(k):  # prepend path
             if isinstance(data[k], str):
                 x = (path / data[k]).resolve()

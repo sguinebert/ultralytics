@@ -129,6 +129,7 @@ class BaseTrainer:
             raise RuntimeError(emojis(f"Dataset '{clean_url(self.args.data)}' error ❌ {e}")) from e
 
         self.trainset, self.testset = self.get_dataset(self.data)
+        self.labelspath = self.data.get('labels')
         self.ema = None
 
         # Optimization utils init

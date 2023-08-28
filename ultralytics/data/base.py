@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Optional
 
+import pydicom
 import cv2
 import numpy as np
 import psutil
@@ -103,17 +104,19 @@ class BaseDataset(Dataset):
             for p in img_path if isinstance(img_path, list) else [img_path]:
                 p = Path(p)  # os-agnostic
                 if p.is_dir():  # dir
-                    f += glob.glob(str(p / '**' / '*.*'), recursive=True)
+                    f += glob.glob(str(p / '**'), recursive=True) #/ '*.*'
                     # F = list(p.rglob('*.*'))  # pathlib
                 elif p.is_file():  # file
                     with open(p) as t:
                         t = t.read().strip().splitlines()
+                        #first_words = [line.split()[0] if line.split() else '' for line in t]
                         parent = str(p.parent) + os.sep
                         f += [x.replace('./', parent) if x.startswith('./') else x for x in t]  # local to global path
                         # F += [p.parent / x.lstrip(os.sep) for x in t]  # local to global path (pathlib)
                 else:
                     raise FileNotFoundError(f'{self.prefix}{p} does not exist')
-            im_files = sorted(x.replace('/', os.sep) for x in f if x.split('.')[-1].lower() in IMG_FORMATS)
+            im_files = sorted(x.replace('/', os.sep) for x in f if (x.split('.')[-1].lower() in IMG_FORMATS) or (not os.path.splitext(x)[1]))
+            #im_files = sorted(x.replace('/', os.sep) for x in f if x.split('.')[-1].lower() in IMG_FORMATS)
             # self.img_files = sorted([x for x in f if x.suffix[1:].lower() in IMG_FORMATS])  # pathlib
             assert im_files, f'{self.prefix}No images found'
         except Exception as e:
@@ -147,6 +150,16 @@ class BaseDataset(Dataset):
         if im is None:  # not cached in RAM
             if fn.exists():  # load npy
                 im = np.load(fn)
+            elif not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                ds = pydicom.dcmread(f)
+                im0 = ds.pixel_array.astype(np.float32)
+                im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                try:
+                    if not (len(im.shape) == 3 and im.shape[2] == 3):
+                        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                except Exception as e:
+                    # Handle the exception here
+                    print("\nAn error occurred: ", f, e)
             else:  # read image
                 im = cv2.imread(f)  # BGR
                 if im is None:

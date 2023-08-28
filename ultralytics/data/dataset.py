@@ -3,6 +3,9 @@ import contextlib
 from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+import glob
+import os
+import re
 
 import cv2
 import numpy as np
@@ -14,7 +17,7 @@ from ultralytics.utils import LOCAL_RANK, NUM_THREADS, TQDM_BAR_FORMAT, colorstr
 
 from .augment import Compose, Format, Instances, LetterBox, classify_albumentations, classify_transforms, v8_transforms
 from .base import BaseDataset
-from .utils import HELP_URL, LOGGER, get_hash, img2label_paths, verify_image, verify_image_label
+from .utils import HELP_URL, LOGGER, get_hash, img2label_paths, verify_image, verify_image_label, file2label_map
 
 # Ultralytics dataset *.cache version, >= 1.0.0 for YOLOv8
 DATASET_CACHE_VERSION = '1.0.3'
@@ -57,7 +60,7 @@ class YOLODataset(BaseDataset):
                              "keypoints, number of dims (2 for x,y or 3 for x,y,visible)], i.e. 'kpt_shape: [17, 3]'")
         with ThreadPool(NUM_THREADS) as pool:
             results = pool.imap(func=verify_image_label,
-                                iterable=zip(self.im_files, self.label_files, repeat(self.prefix),
+                                iterable=zip(self.im_files, repeat(self.lb_map) if self.lb_map else self.label_files, repeat(self.prefix),
                                              repeat(self.use_keypoints), repeat(len(self.data['names'])), repeat(nkpt),
                                              repeat(ndim)))
             pbar = tqdm(results, desc=desc, total=total, bar_format=TQDM_BAR_FORMAT)
@@ -94,8 +97,31 @@ class YOLODataset(BaseDataset):
 
     def get_labels(self):
         """Returns dictionary of labels for YOLO training."""
-        self.label_files = img2label_paths(self.im_files)
-        cache_path = Path(self.label_files[0]).parent.with_suffix('.cache')
+        
+        if self.data.get('labels'):
+            lab_path = self.data.get('labels')
+            f = []
+            for p in lab_path if isinstance(lab_path, list) else [lab_path]:
+                p = Path(p)  # os-agnostic
+                if p.is_dir():  # dir
+                    f += glob.glob(str(p / '**' / '*.txt'), recursive=True)
+                elif p.is_file():  # file
+                    parent = str(p.parent) + os.sep
+                    f += [x.replace('./', parent) if x.startswith('./') else x for x in t]  # local to global path
+                else:
+                    raise FileNotFoundError(f'{self.prefix}{p} does not exist')
+            self.label_files = f
+            self.lb_map = file2label_map(self.label_files)
+            prefix = re.sub(r'\x1b\[[0-9;]*[mG]', '', self.prefix)
+            parts = prefix.split(':')
+            if len(parts) >= 2:
+                prefix = parts[0].strip()
+            cache_path = Path(self.label_files[0]).parent / prefix
+            cache_path = cache_path.with_suffix('.cache')
+            #print(cache_path)
+        else:
+            self.label_files = img2label_paths(self.im_files)
+            cache_path = Path(self.label_files[0]).parent.with_suffix('.cache')
         try:
             cache, exists = load_dataset_cache_file(cache_path), True  # attempt to load a *.cache file
             assert cache['version'] == DATASET_CACHE_VERSION  # matches current version
