@@ -227,6 +227,7 @@ class DetectionModel(BaseModel):
 
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
+        self.ch=ch
         if nc and nc != self.yaml['nc']:
             LOGGER.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml['nc'] = nc  # override YAML value

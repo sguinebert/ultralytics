@@ -75,7 +75,7 @@ class BasePredictor:
         data_path (str): Path to data.
     """
 
-    def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None):
+    def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None, ch=3):
         """
         Initializes the BasePredictor class.
 
@@ -83,6 +83,7 @@ class BasePredictor:
             cfg (str, optional): Path to a configuration file. Defaults to DEFAULT_CFG.
             overrides (dict, optional): Configuration overrides. Defaults to None.
         """
+        self.ch=ch
         self.args = get_cfg(cfg, overrides)
         self.save_dir = self.get_save_dir()
         if self.args.conf is None:
@@ -236,7 +237,7 @@ class BasePredictor:
 
         # Warmup model
         if not self.done_warmup:
-            self.model.warmup(imgsz=(1 if self.model.pt or self.model.triton else self.dataset.bs, 3, *self.imgsz))
+            self.model.warmup(imgsz=(1 if self.model.pt or self.model.triton else self.dataset.bs, self.ch, *self.imgsz))
             self.done_warmup = True
 
         self.seen, self.windows, self.batch, profilers = 0, [], None, (ops.Profile(), ops.Profile(), ops.Profile())

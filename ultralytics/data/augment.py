@@ -132,6 +132,7 @@ class Mosaic(BaseMixTransform):
         assert 0 <= p <= 1.0, f'The probability should be in range [0, 1], but got {p}.'
         assert n in (4, 9), 'grid must be equal to 4 or 9.'
         super().__init__(dataset=dataset, p=p)
+        self.ch=dataset.ch
         self.dataset = dataset
         self.imgsz = imgsz
         self.border = (-imgsz // 2, -imgsz // 2)  # width, height
@@ -160,10 +161,16 @@ class Mosaic(BaseMixTransform):
             # Load image
             img = labels_patch['img']
             h, w = labels_patch.pop('resized_shape')
+            
+            if self.ch==1 and len(img.shape)<3:
+                img=img[...,None]
+
+            #     return
+            #     img = img.reshape([1, *img.shape])
 
             # Place img in img4
             if i == 0:  # top left
-                img4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+                img4 = np.full((s * 2, s * 2, img.shape[2] if len(img.shape)==3 else 1), 114, dtype=np.uint8)  # base image with 4 tiles
                 x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
                 x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
             elif i == 1:  # top right
@@ -703,7 +710,9 @@ class Format:
                  return_keypoint=False,
                  mask_ratio=4,
                  mask_overlap=True,
-                 batch_idx=True):
+                 batch_idx=True,
+                 ch=3):
+        self.ch=ch
         self.bbox_format = bbox_format
         self.normalize = normalize
         self.return_mask = return_mask  # set False when training detection only
@@ -744,10 +753,15 @@ class Format:
 
     def _format_img(self, img):
         """Format the image for YOLOv5 from Numpy array to PyTorch tensor."""
-        if len(img.shape) < 3:
-            img = np.expand_dims(img, -1)
-        img = np.ascontiguousarray(img.transpose(2, 0, 1)[::-1])
-        img = torch.from_numpy(img)
+        if self.ch==3:
+            if len(img.shape) < 3:
+                img = np.expand_dims(img, -1)
+            img = np.ascontiguousarray(img.transpose(2, 0, 1)[::-1])
+            img = torch.from_numpy(img)
+        else:
+            img = img.reshape([1, *img.shape])
+            img = np.ascontiguousarray(img)
+            img = torch.from_numpy(img)
         return img
 
     def _format_segments(self, instances, cls, w, h):

@@ -7,6 +7,7 @@ import glob
 import os
 import re
 
+import pydicom
 import cv2
 import numpy as np
 import torch
@@ -160,12 +161,17 @@ class YOLODataset(BaseDataset):
         return labels
 
     # TODO: use hyp config to set all these augmentations
-    def build_transforms(self, hyp=None):
+    def build_transforms(self, hyp=None, ch=3):
         """Builds and appends transforms to the list."""
+        #self.augment=False
+        if self.ch==1:
+            hyp.hsv_h=0.0
+            hyp.hsv_s=0.0
+            hyp.hsv_v=0.0
         if self.augment:
             hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
             hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
-            transforms = v8_transforms(self, self.imgsz, hyp)
+            transforms = v8_transforms(self, self.imgsz, hyp, ch)
         else:
             transforms = Compose([LetterBox(new_shape=(self.imgsz, self.imgsz), scaleup=False)])
         transforms.append(
@@ -175,7 +181,8 @@ class YOLODataset(BaseDataset):
                    return_keypoint=self.use_keypoints,
                    batch_idx=True,
                    mask_ratio=hyp.mask_ratio,
-                   mask_overlap=hyp.overlap_mask))
+                   mask_overlap=hyp.overlap_mask,
+                   ch=ch))
         return transforms
 
     def close_mosaic(self, hyp):
@@ -233,7 +240,7 @@ class ClassificationDataset(torchvision.datasets.ImageFolder):
         album_transforms (callable, optional): Albumentations transforms applied to the dataset if augment is True.
     """
 
-    def __init__(self, root, args, augment=False, cache=False, prefix=''):
+    def __init__(self, root, args, augment=False, cache=False, prefix='', ch=3):
         """
         Initialize YOLO object with root, image size, augmentations, and cache settings.
 
@@ -246,6 +253,7 @@ class ClassificationDataset(torchvision.datasets.ImageFolder):
         super().__init__(root=root)
         if augment and args.fraction < 1.0:  # reduce training fraction
             self.samples = self.samples[:round(len(self.samples) * args.fraction)]
+        self.ch=ch
         self.prefix = colorstr(f'{prefix}: ') if prefix else ''
         self.cache_ram = cache is True or cache == 'ram'
         self.cache_disk = cache == 'disk'
@@ -269,13 +277,43 @@ class ClassificationDataset(torchvision.datasets.ImageFolder):
         """Returns subset of data and targets corresponding to given indices."""
         f, j, fn, im = self.samples[i]  # filename, index, filename.with_suffix('.npy'), image
         if self.cache_ram and im is None:
-            im = self.samples[i][3] = cv2.imread(f)
+            if not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                ds = pydicom.dcmread(f)
+                im0 = ds.pixel_array.astype(np.float32)
+                im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                self.samples[i][self.ch] = im
+            else:
+                im = self.samples[i][self.ch] = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)
         elif self.cache_disk:
             if not fn.exists():  # load npy
-                np.save(fn.as_posix(), cv2.imread(f))
+                if not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                    ds = pydicom.dcmread(f)
+                    im0 = ds.pixel_array.astype(np.float32)
+                    im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                    if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                    elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                        im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                else:
+                    im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)
+                np.save(fn.as_posix(), im)
             im = np.load(fn)
         else:  # read image
-            im = cv2.imread(f)  # BGR
+            if not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                ds = pydicom.dcmread(f)
+                im0 = ds.pixel_array.astype(np.float32)
+                im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            else:
+                im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)
+            #im = cv2.imread(f)  # BGR
         if self.album_transforms:
             sample = self.album_transforms(image=cv2.cvtColor(im, cv2.COLOR_BGR2RGB))['image']
         else:

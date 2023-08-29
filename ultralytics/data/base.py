@@ -62,8 +62,10 @@ class BaseDataset(Dataset):
                  pad=0.5,
                  single_cls=False,
                  classes=None,
+                 ch=3,
                  fraction=1.0):
         super().__init__()
+        self.ch=ch
         self.img_path = img_path
         self.imgsz = imgsz
         self.augment = augment
@@ -95,7 +97,7 @@ class BaseDataset(Dataset):
             self.cache_images(cache)
 
         # Transforms
-        self.transforms = self.build_transforms(hyp=hyp)
+        self.transforms = self.build_transforms(hyp=hyp, ch=ch)
 
     def get_img_files(self, img_path):
         """Read image files."""
@@ -154,23 +156,30 @@ class BaseDataset(Dataset):
                 ds = pydicom.dcmread(f)
                 im0 = ds.pixel_array.astype(np.float32)
                 im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                try:
-                    if not (len(im.shape) == 3 and im.shape[2] == 3):
-                        im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
-                except Exception as e:
-                    # Handle the exception here
-                    print("\nAn error occurred: ", f, e)
+                if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                if self.ch==1 and len(im.shape) == 3:
+                    im = im[0]
+                # try:
+                #     if not (len(im.shape) == 3 and im.shape[2] == 3):
+                #         im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                # except Exception as e:
+                #     # Handle the exception here
+                #     print("\nAn error occurred: ", f, e)
             else:  # read image
-                im = cv2.imread(f)  # BGR
+                im = cv2.imread(f,cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)  # BGR
                 if im is None:
                     raise FileNotFoundError(f'Image Not Found {f}')
             h0, w0 = im.shape[:2]  # orig hw
             r = self.imgsz / max(h0, w0)  # ratio
             if r != 1:  # if sizes are not equal
                 interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
-                im = cv2.resize(im, (min(math.ceil(w0 * r), self.imgsz), min(math.ceil(h0 * r), self.imgsz)),
-                                interpolation=interp)
-
+                try:
+                    im = cv2.resize(im, (min(math.ceil(w0 * r), self.imgsz), min(math.ceil(h0 * r), self.imgsz)), interpolation=interp)
+                except cv2.error as e:
+                    print("An error occurred:", e)
             # Add to buffer if training with augmentations
             if self.augment:
                 self.ims[i], self.im_hw0[i], self.im_hw[i] = im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
@@ -271,7 +280,7 @@ class BaseDataset(Dataset):
         """custom your label format here."""
         return label
 
-    def build_transforms(self, hyp=None):
+    def build_transforms(self, hyp=None, ch=3):
         """Users can custom augmentations here
         like:
             if self.augment:

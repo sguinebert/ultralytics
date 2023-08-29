@@ -57,7 +57,7 @@ class Model:
         list(ultralytics.engine.results.Results): The prediction results.
     """
 
-    def __init__(self, model: Union[str, Path] = 'yolov8n.pt', task=None) -> None:
+    def __init__(self, model: Union[str, Path] = 'yolov8n.pt', task=None, channels=3) -> None:
         """
         Initializes the YOLO model.
 
@@ -65,6 +65,7 @@ class Model:
             model (Union[str, Path], optional): Path or name of the model to load or create. Defaults to 'yolov8n.pt'.
             task (Any, optional): Task type for the YOLO model. Defaults to None.
         """
+        #self.channels=channels
         self.callbacks = callbacks.get_default_callbacks()
         self.predictor = None  # reuse predictor
         self.model = None  # model object
@@ -116,6 +117,7 @@ class Model:
             verbose (bool): display model info on load
         """
         cfg_dict = yaml_model_load(cfg)
+        self.channels=cfg_dict.get('ch', 3)
         self.cfg = cfg
         self.task = task or guess_model_task(cfg_dict)
         model = model or self.smart_load('model')
@@ -234,7 +236,7 @@ class Model:
         if not self.predictor:
             self.task = overrides.get('task') or self.task
             predictor = predictor or self.smart_load('predictor')
-            self.predictor = predictor(overrides=overrides, _callbacks=self.callbacks)
+            self.predictor = predictor(overrides=overrides, _callbacks=self.callbacks, ch=self.channels)
             self.predictor.setup_model(model=self.model, verbose=is_cli)
         else:  # only update args if predictor is already setup
             self.predictor.args = get_cfg(self.predictor.args, overrides)
@@ -243,7 +245,7 @@ class Model:
         # Set prompts for SAM/FastSAM
         if len and hasattr(self.predictor, 'set_prompts'):
             self.predictor.set_prompts(prompts)
-        return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream)
+        return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream, ch=self.channels)
 
     def track(self, source=None, stream=False, persist=False, **kwargs):
         """
@@ -356,7 +358,7 @@ class Model:
             if any(kwargs):
                 LOGGER.warning('WARNING ⚠️ using HUB training arguments, ignoring local training arguments.')
             kwargs = self.session.train_args
-        check_pip_update_available()
+        #check_pip_update_available()
         overrides = self.overrides.copy()
         if kwargs.get('cfg'):
             LOGGER.info(f"cfg file passed. Overriding default params with {kwargs['cfg']}.")
@@ -369,7 +371,7 @@ class Model:
             overrides['resume'] = self.ckpt_path
         self.task = overrides.get('task') or self.task
         trainer = trainer or self.smart_load('trainer')
-        self.trainer = trainer(overrides=overrides, _callbacks=self.callbacks)
+        self.trainer = trainer(overrides=overrides, _callbacks=self.callbacks, ch=self.channels)
         if not overrides.get('resume'):  # manually set model only if not resuming
             self.trainer.model = self.trainer.get_model(weights=self.model if self.ckpt else None, cfg=self.model.yaml)
             self.model = self.trainer.model

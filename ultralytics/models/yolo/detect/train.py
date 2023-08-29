@@ -27,7 +27,7 @@ class DetectionTrainer(BaseTrainer):
         ```
     """
 
-    def build_dataset(self, img_path, mode='train', batch=None):
+    def build_dataset(self, img_path, mode='train', batch=None, ch=3):
         """
         Build YOLO Dataset.
 
@@ -37,13 +37,13 @@ class DetectionTrainer(BaseTrainer):
             batch (int, optional): Size of batches, this is for `rect`. Defaults to None.
         """
         gs = max(int(de_parallel(self.model).stride.max() if self.model else 0), 32)
-        return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=mode == 'val', stride=gs)
+        return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=mode == 'val', stride=gs, ch=ch)
 
-    def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode='train'):
+    def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode='train', ch=3):
         """Construct and return dataloader."""
         assert mode in ['train', 'val']
         with torch_distributed_zero_first(rank):  # init dataset *.cache only once if DDP
-            dataset = self.build_dataset(dataset_path, mode, batch_size)
+            dataset = self.build_dataset(dataset_path, mode, batch_size, ch=ch)
         shuffle = mode == 'train'
         if getattr(dataset, 'rect', False) and shuffle:
             LOGGER.warning("WARNING ⚠️ 'rect=True' is incompatible with DataLoader shuffle, setting shuffle=False")
@@ -76,7 +76,7 @@ class DetectionTrainer(BaseTrainer):
     def get_validator(self):
         """Returns a DetectionValidator for YOLO model validation."""
         self.loss_names = 'box_loss', 'cls_loss', 'dfl_loss'
-        return yolo.detect.DetectionValidator(self.test_loader, save_dir=self.save_dir, args=copy(self.args))
+        return yolo.detect.DetectionValidator(self.test_loader, save_dir=self.save_dir, args=copy(self.args), ch=self.ch)
 
     def label_loss_items(self, loss_items=None, prefix='train'):
         """

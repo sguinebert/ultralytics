@@ -3,10 +3,21 @@ sys.path.append('/home/guinebert/repos/yolov8_/')  # Replace with the actual pat
 print(sys.path)
 
 from ultralytics.models import YOLO
+from ultralytics import RTDETR
 
-# Load a model
-model = YOLO('yolov8n.yaml').load('yolov8n.pt')  # build from YAML and transfer weights
+# Load a yolov8 model
+#yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt	
+#yolov8n-seg.pt, yolov8s-seg.pt, yolov8m-seg.pt, yolov8l-seg.pt, yolov8x-seg.pt	
+#yolov8n-pose.pt, yolov8s-pose.pt, yolov8m-pose.pt, yolov8l-pose.pt, yolov8x-pose.pt, yolov8x-pose-p6.pt
+#yolov8n-cls.pt, yolov8s-cls.pt, yolov8m-cls.pt, yolov8l-cls.pt, yolov8x-cls.pt	
+model = YOLO('yolov8x.yaml') #.load('yolov8x.pt')  # build from YAML and transfer weights
 
+# Load a COCO-pretrained RT-DETR-l model
+#rtdetr-l.pt rtdetr-x.pt
+#model = RTDETR('rtdetr-l.pt')
+
+# Display model information (optional)
+#model.info()
 
 # Train the model
 results =   model.train(data="/media/guinebert/data/MURA/MURA.yaml", 
@@ -33,7 +44,7 @@ results =   model.train(data="/media/guinebert/data/MURA/MURA.yaml",
                         fraction=1.0,      # dataset fraction to train on (default is 1.0, all images in train set)
 
                         cache=False,      # True/ram, disk or False. Use cache for data loading
-                        save=True,        # save train checkpoints and predict results
+                                
                         patience=50,      # epochs to wait for no observable improvement for early stopping of training
                         lr0=0.01,          # initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
                         lrf=0.01,          # final learning rate (lr0 * lrf)
@@ -47,7 +58,8 @@ results =   model.train(data="/media/guinebert/data/MURA/MURA.yaml",
                         dfl=1.5,            # dfl loss gain
                         #pose=12.0,          # pose loss gain (pose-only)
                         #kobj=2.0,           # keypoint obj loss gain (pose-only)
-                        workers=8)        # number of worker threads for data loading (per RANK if DDP)
+                        #workers=8,        # number of worker threads for data loading (per RANK if DDP)
+                        save=True) # save train checkpoints and predict results
                         
 
     

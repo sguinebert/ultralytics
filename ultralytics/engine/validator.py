@@ -65,7 +65,7 @@ class BaseValidator:
         callbacks (dict): Dictionary to store various callback functions.
     """
 
-    def __init__(self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None):
+    def __init__(self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None, ch=3):
         """
         Initializes a BaseValidator instance.
 
@@ -76,6 +76,7 @@ class BaseValidator:
             args (SimpleNamespace): Configuration for the validator.
             _callbacks (dict): Dictionary to store various callback functions.
         """
+        self.ch=ch
         self.args = get_cfg(overrides=args)
         self.dataloader = dataloader
         self.pbar = pbar
@@ -156,7 +157,7 @@ class BaseValidator:
             self.dataloader = self.dataloader or self.get_dataloader(self.data.get(self.args.split), self.args.batch)
 
             model.eval()
-            model.warmup(imgsz=(1 if pt else self.args.batch, 3, imgsz, imgsz))  # warmup
+            model.warmup(imgsz=(1 if pt else self.args.batch, self.ch, imgsz, imgsz))  # warmup
 
         dt = Profile(), Profile(), Profile(), Profile()
         n_batches = len(self.dataloader)

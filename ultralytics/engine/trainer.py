@@ -73,7 +73,7 @@ class BaseTrainer:
         csv (Path): Path to results CSV file.
     """
 
-    def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None):
+    def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None, ch=3):
         """
         Initializes the BaseTrainer class.
 
@@ -81,6 +81,7 @@ class BaseTrainer:
             cfg (str, optional): Path to a configuration file. Defaults to DEFAULT_CFG.
             overrides (dict, optional): Configuration overrides. Defaults to None.
         """
+        self.ch=ch
         self.args = get_cfg(cfg, overrides)
         self.check_resume(overrides)
         self.device = select_device(self.args.device, self.args.batch)
@@ -259,9 +260,9 @@ class BaseTrainer:
 
         # Dataloaders
         batch_size = self.batch_size // max(world_size, 1)
-        self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=RANK, mode='train')
+        self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=RANK, mode='train', ch=self.ch)
         if RANK in (-1, 0):
-            self.test_loader = self.get_dataloader(self.testset, batch_size=batch_size * 2, rank=-1, mode='val')
+            self.test_loader = self.get_dataloader(self.testset, batch_size=batch_size * 2, rank=-1, mode='val', ch=self.ch)
             self.validator = self.get_validator()
             metric_keys = self.validator.metrics.keys + self.label_loss_items(prefix='val')
             self.metrics = dict(zip(metric_keys, [0] * len(metric_keys)))  # TODO: init metrics for plot_results()?
@@ -511,7 +512,7 @@ class BaseTrainer:
         """Returns a NotImplementedError when the get_validator function is called."""
         raise NotImplementedError('get_validator function not implemented in trainer')
 
-    def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode='train'):
+    def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode='train', ch=3):
         """
         Returns dataloader derived from torch.data.Dataloader.
         """
