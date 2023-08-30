@@ -169,9 +169,9 @@ class YOLODataset(BaseDataset):
             hyp.hsv_s=0.0
             hyp.hsv_v=0.0
         if self.augment:
-            hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
-            hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
-            transforms = v8_transforms(self, self.imgsz, hyp, ch)
+            hyp.mosaic = 0.0 # hyp.mosaic if self.augment and not self.rect else 0.0
+            hyp.mixup = 0.0 #hyp.mixup if self.augment and not self.rect else 0.0
+            transforms = v8_transforms(dataset=self, imgsz=self.imgsz, hyp=hyp, stretch=False)
         else:
             transforms = Compose([LetterBox(new_shape=(self.imgsz, self.imgsz), scaleup=False)])
         transforms.append(

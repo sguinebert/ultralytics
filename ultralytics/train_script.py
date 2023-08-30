@@ -10,7 +10,7 @@ from ultralytics import RTDETR
 #yolov8n-seg.pt, yolov8s-seg.pt, yolov8m-seg.pt, yolov8l-seg.pt, yolov8x-seg.pt	
 #yolov8n-pose.pt, yolov8s-pose.pt, yolov8m-pose.pt, yolov8l-pose.pt, yolov8x-pose.pt, yolov8x-pose-p6.pt
 #yolov8n-cls.pt, yolov8s-cls.pt, yolov8m-cls.pt, yolov8l-cls.pt, yolov8x-cls.pt	
-model = YOLO('yolov8x.yaml') #.load('yolov8x.pt')  # build from YAML and transfer weights
+model = YOLO('yolov8n.yaml') #.load('yolov8x.pt')  # build from YAML and transfer weights
 
 # Load a COCO-pretrained RT-DETR-l model
 #rtdetr-l.pt rtdetr-x.pt
@@ -20,7 +20,8 @@ model = YOLO('yolov8x.yaml') #.load('yolov8x.pt')  # build from YAML and transfe
 #model.info()
 
 # Train the model
-results =   model.train(data="/media/guinebert/data/MURA/MURA.yaml", 
+results =   model.train(#data="coco128.yaml",
+                        data="/media/guinebert/data/MURA/MURA.yaml", 
                         #resume=True,
                         val=True,            # validate/test during training
                         epochs=3,

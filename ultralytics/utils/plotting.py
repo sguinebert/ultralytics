@@ -261,7 +261,7 @@ class Annotator:
         return np.asarray(self.im)
 
 
-@TryExcept()  # known issue https://github.com/ultralytics/yolov5/issues/5395
+@TryExcept()  # known issue https://github.com/ultralytics/yolov5/issues/5395 ❌
 @plt_settings()
 def plot_labels(boxes, cls, names=(), save_dir=Path(''), on_plot=None):
     """Plot training labels including class histograms and box statistics."""

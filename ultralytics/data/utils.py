@@ -135,7 +135,7 @@ def verify_image_label(args):
         # Verify labels
         if isinstance(lb_file, dict) or os.path.isfile(lb_file):
             nf = 1  # label found
-            if isinstance(lb_file, dict):
+            if isinstance(lb_file, dict): #map : uuid image --> n boxes [x, y, x, y] -  [no segmentation coordinates]
                 filename = os.path.basename(im_file)
                 key = filename[0:2] + '/' + filename[2:4] + '/' + filename
                 lb=[]
@@ -145,8 +145,8 @@ def verify_image_label(args):
                     lb=lb_file[filename]
                 if any(len(x) > 4 for x in lb) and (not keypoint):  # is segment
                     classes = np.array([x[0] for x in lb], dtype=np.float32)
-                    segments = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
-                    lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments, shape)), 1)  # (cls, xywh)
+                    temp = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
+                    lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(temp, shape)), 1)  # (cls, xywh)
                 lb = np.array(lb, dtype=np.float32)
                 #print('map', lb)
             elif os.path.isfile(lb_file):

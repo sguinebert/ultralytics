@@ -106,7 +106,8 @@ class BaseDataset(Dataset):
             for p in img_path if isinstance(img_path, list) else [img_path]:
                 p = Path(p)  # os-agnostic
                 if p.is_dir():  # dir
-                    f += glob.glob(str(p / '**'), recursive=True) #/ '*.*'
+                    f += [item for item in glob.glob(str(p / '**'), recursive=True) if os.path.isfile(item)]
+                    #f += glob.glob(str(p / '**'), recursive=True) #/ '*.*'
                     # F = list(p.rglob('*.*'))  # pathlib
                 elif p.is_file():  # file
                     with open(p) as t:
@@ -154,14 +155,19 @@ class BaseDataset(Dataset):
                 im = np.load(fn)
             elif not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
                 ds = pydicom.dcmread(f)
-                im0 = ds.pixel_array.astype(np.float32)
+                num_frames = ds.get('NumberOfFrames', 1)
+                if num_frames > 1:
+                    #print("num frames == ", num_frames)
+                    im0 = ds.pixel_array[0].astype(np.float32)
+                else:
+                    im0 = ds.pixel_array.astype(np.float32)
                 im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                if self.ch==3 and not len(im.shape) == 3: #(len(im.shape) == 3 and im.shape[2] == 3)
                     im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
-                elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                elif self.ch==1 and len(im.shape) == 3:
                     im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-                if self.ch==1 and len(im.shape) == 3:
-                    im = im[0]
+                # if self.ch==1 and len(im.shape) == 3:
+                #     im = im[0]
                 # try:
                 #     if not (len(im.shape) == 3 and im.shape[2] == 3):
                 #         im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
@@ -169,7 +175,7 @@ class BaseDataset(Dataset):
                 #     # Handle the exception here
                 #     print("\nAn error occurred: ", f, e)
             else:  # read image
-                im = cv2.imread(f,cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)  # BGR
+                im = cv2.imread(f,cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_COLOR)  # BGR
                 if im is None:
                     raise FileNotFoundError(f'Image Not Found {f}')
             h0, w0 = im.shape[:2]  # orig hw
