@@ -23,7 +23,7 @@ from ultralytics.utils import (DATASETS_DIR, LOGGER, NUM_THREADS, ROOT, SETTINGS
                                yaml_load)
 from ultralytics.utils.checks import check_file, check_font, is_ascii
 from ultralytics.utils.downloads import download, safe_download, unzip_file
-from ultralytics.utils.ops import segments2boxes
+from ultralytics.utils.ops import segments2boxes, xywh2nxywh
 
 HELP_URL = 'See https://docs.ultralytics.com/datasets/detect for dataset formatting guidance.'
 IMG_FORMATS = 'bmp', 'dng', 'jpeg', 'jpg', 'mpo', 'png', 'tif', 'tiff', 'webp', 'pfm'  # image suffixes
@@ -115,7 +115,7 @@ def verify_image_label(args):
             #im0 = ds.pixel_array.astype(np.float32)
             # im0 = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             # im0 = cv2.cvtColor(im0, cv2.COLOR_GRAY2BGR)
-            shape = (ds.Columns, ds.Rows)  # hw
+            shape = (ds.Rows, ds.Columns)  # hw
             assert (shape[0] > 9) & (shape[1] > 9), f'image size {shape} <10 pixels'
             #print("File has no extension")
         else:
@@ -143,10 +143,12 @@ def verify_image_label(args):
                     lb=lb_file[key]
                 else:
                     lb=lb_file[filename]
-                if any(len(x) > 4 for x in lb) and (not keypoint):  # is segment
+                if any(len(x) == 5 for x in lb) and (not keypoint):  # is segment
                     classes = np.array([x[0] for x in lb], dtype=np.float32)
-                    temp = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
-                    lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(temp, shape)), 1)  # (cls, xywh)
+                    temp = [np.array(x[1:], dtype=np.float32) for x in lb] 
+                    lb = np.concatenate((classes.reshape(-1, 1), xywh2nxywh(temp, shape)), 1)
+                    # temp = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
+                    # lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(temp, shape)), 1)  # (cls, xywh)
                 lb = np.array(lb, dtype=np.float32)
                 #print('map', lb)
             elif os.path.isfile(lb_file):

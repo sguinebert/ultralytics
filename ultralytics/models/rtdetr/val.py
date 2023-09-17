@@ -46,7 +46,7 @@ class RTDETRDataset(YOLODataset):
 
         return self.ims[i], self.im_hw0[i], self.im_hw[i]
 
-    def build_transforms(self, hyp=None):
+    def build_transforms(self, hyp=None, ch=3):
         """Temporary, only for evaluation."""
         if self.augment:
             hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
@@ -62,7 +62,8 @@ class RTDETRDataset(YOLODataset):
                    return_keypoint=self.use_keypoints,
                    batch_idx=True,
                    mask_ratio=hyp.mask_ratio,
-                   mask_overlap=hyp.overlap_mask))
+                   mask_overlap=hyp.overlap_mask, 
+                   ch=ch))
         return transforms
 
 

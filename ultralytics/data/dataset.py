@@ -169,8 +169,8 @@ class YOLODataset(BaseDataset):
             hyp.hsv_s=0.0
             hyp.hsv_v=0.0
         if self.augment:
-            hyp.mosaic = 0.0 # hyp.mosaic if self.augment and not self.rect else 0.0
-            hyp.mixup = 0.0 #hyp.mixup if self.augment and not self.rect else 0.0
+            hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
+            hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
             transforms = v8_transforms(dataset=self, imgsz=self.imgsz, hyp=hyp, stretch=False)
         else:
             transforms = Compose([LetterBox(new_shape=(self.imgsz, self.imgsz), scaleup=False)])
@@ -182,7 +182,7 @@ class YOLODataset(BaseDataset):
                    batch_idx=True,
                    mask_ratio=hyp.mask_ratio,
                    mask_overlap=hyp.overlap_mask,
-                   ch=ch))
+                   ch=self.ch))
         return transforms
 
     def close_mosaic(self, hyp):
@@ -190,7 +190,7 @@ class YOLODataset(BaseDataset):
         hyp.mosaic = 0.0  # set mosaic ratio=0.0
         hyp.copy_paste = 0.0  # keep the same behavior as previous v8 close-mosaic
         hyp.mixup = 0.0  # keep the same behavior as previous v8 close-mosaic
-        self.transforms = self.build_transforms(hyp)
+        self.transforms = self.build_transforms(hyp, ch=self.ch)
 
     def update_labels_info(self, label):
         """custom your label format here."""

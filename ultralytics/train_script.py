@@ -10,11 +10,11 @@ from ultralytics import RTDETR
 #yolov8n-seg.pt, yolov8s-seg.pt, yolov8m-seg.pt, yolov8l-seg.pt, yolov8x-seg.pt	
 #yolov8n-pose.pt, yolov8s-pose.pt, yolov8m-pose.pt, yolov8l-pose.pt, yolov8x-pose.pt, yolov8x-pose-p6.pt
 #yolov8n-cls.pt, yolov8s-cls.pt, yolov8m-cls.pt, yolov8l-cls.pt, yolov8x-cls.pt	
-model = YOLO('yolov8n.yaml') #.load('yolov8x.pt')  # build from YAML and transfer weights
+model = YOLO('yolov8x.yaml').load("last.pt") #.load('yolov8x.pt')  # build from YAML and transfer weights
 
 # Load a COCO-pretrained RT-DETR-l model
-#rtdetr-l.pt rtdetr-x.pt
-#model = RTDETR('rtdetr-l.pt')
+# rtdetr-l.pt rtdetr-x.pt
+# model = RTDETR('rtdetr-l.pt')
 
 # Display model information (optional)
 #model.info()
@@ -22,17 +22,17 @@ model = YOLO('yolov8n.yaml') #.load('yolov8x.pt')  # build from YAML and transfe
 # Train the model
 results =   model.train(#data="coco128.yaml",
                         data="/media/guinebert/data/MURA/MURA.yaml", 
-                        #resume=True,
+                        resume=True,
                         val=True,            # validate/test during training
-                        epochs=3,
+                        epochs=100,
                         imgsz=640,
-                        batch=16,
+                        batch=64,
                         optimizer='auto', # optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
                         device=[0,1,2,3], # device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
                         freeze=None,       # (int or list, optional) freeze first n layers, or freeze list of layer indices during training
                         
-                        #seed=0,           # random seed for reproducibility
-                        #deterministic=True, # whether to enable deterministic mode
+                        seed=0,           # random seed for reproducibility
+                        deterministic=True, # whether to enable deterministic mode
                         amp=True,          # Automatic Mixed Precision (AMP) training, choices=[True, False]
                         profile=False,     # profile ONNX and TensorRT speeds during training for loggers
                         dropout=0.0,        # use dropout regularization (classify train only)
@@ -44,22 +44,22 @@ results =   model.train(#data="coco128.yaml",
                         close_mosaic=10,   # (int) disable mosaic augmentation for final epochs (0 to disable)
                         fraction=1.0,      # dataset fraction to train on (default is 1.0, all images in train set)
 
-                        cache=False,      # True/ram, disk or False. Use cache for data loading
+                        cache='disk',      # True/ram, disk or False. Use cache for data loading
                                 
                         patience=50,      # epochs to wait for no observable improvement for early stopping of training
-                        lr0=0.01,          # initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
+                        lr0=0.0001,          # initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
                         lrf=0.01,          # final learning rate (lr0 * lrf)
                         momentum=0.937,    # SGD momentum/Adam beta1
                         weight_decay=0.0005, # optimizer weight decay 5e-4
-                        warmup_epochs=3.0, # warmup epochs (fractions ok)
+                        warmup_epochs=0.0, # warmup epochs (fractions ok)
                         warmup_momentum=0.8, # warmup initial momentum
                         warmup_bias_lr=0.1,  # warmup initial bias lr
-                        box=1.0,            # box loss gain
+                        box=5.0,            # box loss gain
                         cls=20,            # cls loss gain (scale with pixels)
                         dfl=1.5,            # dfl loss gain
                         #pose=12.0,          # pose loss gain (pose-only)
                         #kobj=2.0,           # keypoint obj loss gain (pose-only)
-                        #workers=8,        # number of worker threads for data loading (per RANK if DDP)
+                        workers=8,        # number of worker threads for data loading (per RANK if DDP)
                         save=True) # save train checkpoints and predict results
                         
 

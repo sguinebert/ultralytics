@@ -577,6 +577,22 @@ def segments2boxes(segments, shape):
         boxes.append([x.min() / shape[0], y.min() / shape[1], x.max() / shape[0], y.max() / shape[1]])  # cls, xyxy
     return xyxy2xywh(np.array(boxes))  # cls, xywh
 
+def xywh2nxywh(xywh_boxes, shape):
+    """
+    It converts xywh labels to normalized xywh box labels, i.e. (xywh1, xywh2, ...) to normalized N(xywh)
+
+    Args:
+        xywh_boxes (list): list of segments, each xywh_boxes is a xywh corrds, each point is a list of x, y coordinates
+
+    Returns:
+        (np.ndarray): the xywh coordinates of the bounding boxes.
+    """
+    boxes = []
+    for s in xywh_boxes:
+        x, y, w, h = s  # segment xy
+        boxes.append([x / shape[1], y / shape[0], (x + w) / shape[1], (y + h) / shape[0]])  # xy1xy2 
+    return xyxy2xywh(np.array(boxes))  # cls, xywh
+
 
 def resample_segments(segments, n=1000):
     """

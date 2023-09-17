@@ -218,7 +218,30 @@ class BaseDataset(Dataset):
         """Saves an image as an *.npy file for faster loading."""
         f = self.npy_files[i]
         if not f.exists():
-            np.save(f.as_posix(), cv2.imread(self.im_files[i]))
+            if not Path(self.im_files[i]).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                ds = pydicom.dcmread(self.im_files[i])
+                num_frames = ds.get('NumberOfFrames', 1)
+                if num_frames > 1:
+                    #print("num frames == ", num_frames)
+                    im0 = ds.pixel_array[0].astype(np.float32)
+                else:
+                    im0 = ds.pixel_array.astype(np.float32)
+                im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                if self.ch==3 and not len(im.shape) == 3: #(len(im.shape) == 3 and im.shape[2] == 3)
+                    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                elif self.ch==1 and len(im.shape) == 3:
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                h0, w0 = im.shape[:2]  # orig hw
+                r = self.imgsz / max(h0, w0)  # ratio
+                if r != 1:  # if sizes are not equal
+                    interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
+                    try:
+                        im = cv2.resize(im, (min(math.ceil(w0 * r), self.imgsz), min(math.ceil(h0 * r), self.imgsz)), interpolation=interp)
+                    except cv2.error as e:
+                        print("An error occurred:", e)
+                np.save(f.as_posix(), im)
+            else:
+                np.save(f.as_posix(), cv2.imread(self.im_files[i]))
 
     def check_cache_ram(self, safety_margin=0.5):
         """Check image caching requirements vs available memory."""
