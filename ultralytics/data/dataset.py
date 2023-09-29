@@ -299,9 +299,11 @@ class ClassificationDataset(torchvision.datasets.ImageFolder):
                     elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
                         im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
                 else:
-                    im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)
+                    im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_COLOR)
                 np.save(fn.as_posix(), im)
             im = np.load(fn)
+            if len(im.shape) == 2 and self.ch==3: # grayscale to rgb im
+                im=np.stack((im,)*3, axis=-1)
         else:  # read image
             if not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
                 ds = pydicom.dcmread(f)
@@ -312,7 +314,7 @@ class ClassificationDataset(torchvision.datasets.ImageFolder):
                 elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
                     im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
             else:
-                im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_UNCHANGED)
+                im = cv2.imread(f, cv2.IMREAD_GRAYSCALE if self.ch == 1 else cv2.IMREAD_COLOR)
             #im = cv2.imread(f)  # BGR
         if self.album_transforms:
             sample = self.album_transforms(image=cv2.cvtColor(im, cv2.COLOR_BGR2RGB))['image']

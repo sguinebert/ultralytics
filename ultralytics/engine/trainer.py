@@ -244,7 +244,7 @@ class BaseTrainer:
         self.amp = bool(self.amp)  # as boolean
         self.scaler = amp.GradScaler(enabled=self.amp)
         if world_size > 1:
-            self.model = DDP(self.model, device_ids=[RANK])
+            self.model = DDP(self.model, device_ids=[RANK], find_unused_parameters=False) #, find_unused_parameters=True
 
         # Check imgsz
         gs = max(int(self.model.stride.max() if hasattr(self.model, 'stride') else 32), 32)  # grid size (max stride)
@@ -356,8 +356,17 @@ class BaseTrainer:
                     self.tloss = (self.tloss * i + self.loss_items) / (i + 1) if self.tloss is not None \
                         else self.loss_items
 
+                #gpumem = torch.cuda.memory_summary(device=3, abbreviated=False)
+                #print('torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated() :', torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
+                #continue
+
+                
                 # Backward
                 self.scaler.scale(self.loss).backward()
+                
+                # self.loss.detach()
+                # self.loss_items.detach()
+                
 
                 # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
                 if ni - last_opt_step >= self.accumulate:

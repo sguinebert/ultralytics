@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pydicom
 import torch
 
 from ultralytics.data import YOLODataset
@@ -17,8 +18,8 @@ __all__ = 'RTDETRValidator',  # tuple or list
 # TODO: Temporarily RT-DETR does not need padding.
 class RTDETRDataset(YOLODataset):
 
-    def __init__(self, *args, data=None, **kwargs):
-        super().__init__(*args, data=data, use_segments=False, use_keypoints=False, **kwargs)
+    def __init__(self, *args, data=None, ch=3, **kwargs):
+        super().__init__(*args, data=data, use_segments=False, use_keypoints=False, ch=ch, **kwargs)
 
     # NOTE: add stretch version load_image for rtdetr mosaic
     def load_image(self, i):
@@ -27,6 +28,16 @@ class RTDETRDataset(YOLODataset):
         if im is None:  # not cached in RAM
             if fn.exists():  # load npy
                 im = np.load(fn)
+                if len(im.shape) == 2 and self.ch==3: # grayscale to rgb im
+                    im=np.stack((im,)*3, axis=-1)
+            elif not Path(f).suffix or Path(f).suffix == 'dcm': #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
+                ds = pydicom.dcmread(f)
+                im0 = ds.pixel_array.astype(np.float32)
+                im = cv2.normalize(im0, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                if self.ch==3 and not (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+                elif self.ch==1 and (len(im.shape) == 3 and im.shape[2] == 3):
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
             else:  # read image
                 im = cv2.imread(f)  # BGR
                 if im is None:
@@ -48,6 +59,10 @@ class RTDETRDataset(YOLODataset):
 
     def build_transforms(self, hyp=None, ch=3):
         """Temporary, only for evaluation."""
+        if self.ch==1:
+            hyp.hsv_h=0.0
+            hyp.hsv_s=0.0
+            hyp.hsv_v=0.0
         if self.augment:
             hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
             hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
@@ -81,7 +96,7 @@ class RTDETRValidator(DetectionValidator):
         ```
     """
 
-    def build_dataset(self, img_path, mode='val', batch=None):
+    def build_dataset(self, img_path, mode='val', batch=None, ch=3):
         """
         Build an RTDETR Dataset.
 
@@ -99,7 +114,7 @@ class RTDETRValidator(DetectionValidator):
             rect=False,  # no rect
             cache=self.args.cache or None,
             prefix=colorstr(f'{mode}: '),
-            data=self.data)
+            data=self.data, ch=ch)
 
     def postprocess(self, preds):
         """Apply Non-maximum suppression to prediction outputs."""

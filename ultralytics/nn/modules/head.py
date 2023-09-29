@@ -231,6 +231,12 @@ class RTDETRDecoder(nn.Module):
     def forward(self, x, batch=None):
         from ultralytics.models.utils.ops import get_cdn_group
 
+        # I disable to grad tracker for some operations
+        # with torch.no_grad():
+        #     self.net.requires_grad_(False)  # <- Added line 1
+        #     # do something with self.net
+        #     self.net.requires_grad_(True)  # <- Added line 2
+
         # input projection and embedding
         feats, shapes = self._get_encoder_input(x)
 

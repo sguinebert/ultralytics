@@ -1,20 +1,34 @@
-import sys
+import sys, os
 sys.path.append('/home/guinebert/repos/yolov8_/')  # Replace with the actual path to the cloned repository directory
-print(sys.path)
+#print(sys.path)
+
+# os.environ[
+#     "TORCH_DISTRIBUTED_DEBUG"
+# ] = "DETAIL"  # set to DETAIL for runtime logging.
 
 from ultralytics.models import YOLO
 from ultralytics import RTDETR
 
-# Load a yolov8 model
+# Load a yolov8 model-
 #yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt	
 #yolov8n-seg.pt, yolov8s-seg.pt, yolov8m-seg.pt, yolov8l-seg.pt, yolov8x-seg.pt	
 #yolov8n-pose.pt, yolov8s-pose.pt, yolov8m-pose.pt, yolov8l-pose.pt, yolov8x-pose.pt, yolov8x-pose-p6.pt
 #yolov8n-cls.pt, yolov8s-cls.pt, yolov8m-cls.pt, yolov8l-cls.pt, yolov8x-cls.pt	
-model = YOLO('yolov8x.yaml').load("last.pt") #.load('yolov8x.pt')  # build from YAML and transfer weights
+model = YOLO('yolov8x.yaml')#.load("best.pt") #.load('yolov8x.pt')  # build from YAML and transfer weights
+#model = YOLO('/home/guinebert/repos/yolov8_/runs/detect/train50/weights/last.pt')
 
 # Load a COCO-pretrained RT-DETR-l model
-# rtdetr-l.pt rtdetr-x.pt
-# model = RTDETR('rtdetr-l.pt')
+# rtdetr-l.pt rtdetr-x.pt rtdetr-x.yaml
+#model = RTDETR('rtdetr-x.yaml', ch=3)
+#model = RTDETR('rtdetr-x.pt')
+#model = RTDETR('yolov8x-rtdetr.yaml')
+
+# names= []
+# params = []
+# for name, param in model.model.named_parameters():
+#     names.append(name)
+#     params.append(param)
+#     print(name, param.shape, param.requires_grad)
 
 # Display model information (optional)
 #model.info()
@@ -24,7 +38,7 @@ results =   model.train(#data="coco128.yaml",
                         data="/media/guinebert/data/MURA/MURA.yaml", 
                         resume=True,
                         val=True,            # validate/test during training
-                        epochs=100,
+                        epochs=1000,
                         imgsz=640,
                         batch=64,
                         optimizer='auto', # optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
@@ -41,16 +55,16 @@ results =   model.train(#data="coco128.yaml",
                         single_cls=False,  # train multi-class data as single-class
                         rect=False,        # rectangular training with each batch collated for minimum padding
                         cos_lr=False,      # use cosine learning rate scheduler
-                        close_mosaic=10,   # (int) disable mosaic augmentation for final epochs (0 to disable)
+                        close_mosaic=100,   # (int) disable mosaic augmentation for final epochs (0 to disable)
                         fraction=1.0,      # dataset fraction to train on (default is 1.0, all images in train set)
 
                         cache='disk',      # True/ram, disk or False. Use cache for data loading
                                 
-                        patience=50,      # epochs to wait for no observable improvement for early stopping of training
-                        lr0=0.0001,          # initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
+                        patience=0,      # epochs to wait for no observable improvement for early stopping of training
+                        lr0=0.0003,          # initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
                         lrf=0.01,          # final learning rate (lr0 * lrf)
                         momentum=0.937,    # SGD momentum/Adam beta1
-                        weight_decay=0.0005, # optimizer weight decay 5e-4
+                        weight_decay=0.000000005, # optimizer weight decay 5e-4
                         warmup_epochs=0.0, # warmup epochs (fractions ok)
                         warmup_momentum=0.8, # warmup initial momentum
                         warmup_bias_lr=0.1,  # warmup initial bias lr

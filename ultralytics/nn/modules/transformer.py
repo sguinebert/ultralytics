@@ -308,21 +308,32 @@ class DeformableTransformerDecoderLayer(nn.Module):
 
     def forward_ffn(self, tgt):
         tgt2 = self.linear2(self.dropout3(self.act(self.linear1(tgt))))
+        #with torch.no_grad():
         tgt = tgt + self.dropout4(tgt2)
         tgt = self.norm3(tgt)
         return tgt
 
     def forward(self, embed, refer_bbox, feats, shapes, padding_mask=None, attn_mask=None, query_pos=None):
         # self attention
+        #with torch.no_grad():
         q = k = self.with_pos_embed(embed, query_pos)
+        
         tgt = self.self_attn(q.transpose(0, 1), k.transpose(0, 1), embed.transpose(0, 1),
                              attn_mask=attn_mask)[0].transpose(0, 1)
+        
+        tgt.detach().cpu().numpy()
+
+        #with torch.no_grad():
         embed = embed + self.dropout1(tgt)
+            # tgt.detach()
+            # del tgt
         embed = self.norm1(embed)
 
         # cross attention
         tgt = self.cross_attn(self.with_pos_embed(embed, query_pos), refer_bbox.unsqueeze(2), feats, shapes,
                               padding_mask)
+        
+        #with torch.no_grad():
         embed = embed + self.dropout2(tgt)
         embed = self.norm2(embed)
 

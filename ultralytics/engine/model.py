@@ -65,7 +65,7 @@ class Model:
             model (Union[str, Path], optional): Path or name of the model to load or create. Defaults to 'yolov8n.pt'.
             task (Any, optional): Task type for the YOLO model. Defaults to None.
         """
-        #self.channels=channels
+        self.channels=channels
         self.callbacks = callbacks.get_default_callbacks()
         self.predictor = None  # reuse predictor
         self.model = None  # model object
@@ -93,6 +93,7 @@ class Model:
             self._new(model, task)
         else:
             self._load(model, task)
+        self.channels=self.model.ch
 
     def __call__(self, source=None, stream=False, **kwargs):
         """Calls the 'predict' function with given arguments to perform object detection."""

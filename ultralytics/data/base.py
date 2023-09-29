@@ -153,6 +153,8 @@ class BaseDataset(Dataset):
         if im is None:  # not cached in RAM
             if fn.exists():  # load npy
                 im = np.load(fn)
+                if len(im.shape) == 2 and self.ch==3: # grayscale to rgb im
+                    im=np.stack((im,)*3, axis=-1)
             elif not Path(f).suffix: #probably a DICOM (TODO : check 'DCM' at pos 3 in file)
                 ds = pydicom.dcmread(f)
                 num_frames = ds.get('NumberOfFrames', 1)

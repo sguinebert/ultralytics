@@ -394,6 +394,9 @@ class ClassificationModel(BaseModel):
 class RTDETRDetectionModel(DetectionModel):
 
     def __init__(self, cfg='rtdetr-l.yaml', ch=3, nc=None, verbose=True):
+        if hasattr(self, 'yaml'):
+            ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
+            self.ch=ch
         super().__init__(cfg=cfg, ch=ch, nc=nc, verbose=verbose)
 
     def init_criterion(self):

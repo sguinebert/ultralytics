@@ -162,11 +162,10 @@ class Mosaic(BaseMixTransform):
             img = labels_patch['img']
             h, w = labels_patch.pop('resized_shape')
             
-            if self.ch==1 and len(img.shape)<3:
+            if self.ch==1 and len(img.shape)==2:
                 img=img[...,None]
-
-            #     return
-            #     img = img.reshape([1, *img.shape])
+            # if self.ch==3 and len(img.shape)<3:
+            #     img=img[...,3]
 
             # Place img in img4
             if i == 0:  # top left

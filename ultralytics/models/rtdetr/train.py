@@ -31,12 +31,12 @@ class RTDETRTrainer(DetectionTrainer):
 
     def get_model(self, cfg=None, weights=None, verbose=True):
         """Return a YOLO detection model."""
-        model = RTDETRDetectionModel(cfg, nc=self.data['nc'], verbose=verbose and RANK == -1)
+        model = RTDETRDetectionModel(cfg, nc=self.data['nc'], verbose=verbose and RANK == -1, ch=self.ch)
         if weights:
             model.load(weights)
         return model
 
-    def build_dataset(self, img_path, mode='val', batch=None):
+    def build_dataset(self, img_path, mode='val', batch=None, ch=3):
         """Build RTDETR Dataset
 
         Args:
@@ -53,7 +53,7 @@ class RTDETRTrainer(DetectionTrainer):
             rect=False,  # no rect
             cache=self.args.cache or None,
             prefix=colorstr(f'{mode}: '),
-            data=self.data)
+            data=self.data, ch=ch)
 
     def get_validator(self):
         """Returns a DetectionValidator for RTDETR model validation."""
